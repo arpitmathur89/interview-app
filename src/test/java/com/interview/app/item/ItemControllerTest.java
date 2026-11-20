@@ -96,7 +96,7 @@ class ItemControllerTest {
     @Test
     void blankNameIsRejectedWithFieldError() throws Exception {
         mvc.perform(post("/api/items").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"\"}"))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.details.name").exists());
     }
 

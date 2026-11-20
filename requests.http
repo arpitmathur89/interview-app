@@ -13,7 +13,7 @@ Content-Type: application/json
 
 {"name": "demo"}
 
-### Create invalid (400 with field details)
+### Create invalid (422 with field details)
 POST {{base}}/api/items
 Content-Type: application/json
 

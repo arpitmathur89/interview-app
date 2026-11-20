@@ -18,13 +18,16 @@ mvn test                 # unit/integration tests (in-memory DB)
 ./smoke-test.sh          # curl checks against the running app
 ```
 
+## Make shortcuts
+`make reset` | `make run` | `make seed` | `make smoke` | `make test` (each request logs method, path, status and ms)
+
 ## API
 | Method | Path | Purpose | Codes |
 | --- | --- | --- | --- |
-| POST | /api/items | create | 201, 400, 409 |
+| POST | /api/items | create | 201, 400, 409, 422 |
 | GET | /api/items?status=&page=&size= | list, filter, paginate (size max 100) | 200 |
 | GET | /api/items/{id} | get one | 200, 400, 404 |
-| PUT | /api/items/{id} | update name/description | 200, 400, 404, 409 |
+| PUT | /api/items/{id} | update name/description | 200, 400, 404, 409, 422 |
 | PATCH | /api/items/{id}/status | status change with transition rules | 200, 400, 404, 409 |
 | GET | /api/items/{id}/events | status history (audit) | 200, 404 |
 | DELETE | /api/items/{id} | delete (history cascades) | 204, 404 |
@@ -58,7 +61,7 @@ curl -X DELETE localhost:8080/api/items/1
 ```
 src/main/java/com/interview/app/
   InterviewApplication.java      entry point
-  ApiExceptionHandler.java       one JSON error shape: 400 / 404 / 409 / 500
+  ApiExceptionHandler.java       one JSON error shape: 400 / 404 / 409 / 422 / 500
   common/NotFoundException.java  -> 404
   common/ConflictException.java  -> 409
   item/Item.java                 placeholder entity, unique name, status, timestamps

@@ -19,7 +19,7 @@ ID=$(sed -E 's/.*"id":([0-9]+).*/\1/' /tmp/smoke.out)
 check 200 GET  "/api/items/$ID"
 check 200 GET  "/api/items?status=PENDING"
 check 409 POST /api/items "{\"name\":\"$NAME\"}"
-check 400 POST /api/items '{"name":""}'
+check 422 POST /api/items '{"name":""}'
 check 404 GET  /api/items/999999
 check 400 GET  /api/items/abc
 check 200 PATCH "/api/items/$ID/status" '{"status":"IN_REVIEW","reason":"smoke"}'

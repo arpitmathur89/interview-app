@@ -20,7 +20,7 @@ import java.util.Map;
 
 /**
  * One JSON error shape for every failure: {"error": "...", "message": "...", "details": {...}}
- * 400 bad input | 404 unknown id | 409 duplicate / illegal state | 500 unexpected (logged, no stack trace to client)
+ * 400 malformed body/id | 422 field validation | 404 unknown id | 409 duplicate / illegal state | 500 unexpected (logged, no stack trace to client)
  */
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -32,7 +32,7 @@ public class ApiExceptionHandler {
         Map<String, String> fields = new LinkedHashMap<>();
         ex.getBindingResult().getFieldErrors()
                 .forEach(e -> fields.put(e.getField(), e.getDefaultMessage()));
-        return body(HttpStatus.BAD_REQUEST, "Validation failed", "One or more fields are invalid", fields);
+        return body(HttpStatus.UNPROCESSABLE_ENTITY, "Validation failed", "One or more fields are invalid", fields);
     }
 
     @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
