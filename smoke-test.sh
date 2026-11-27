@@ -17,16 +17,13 @@ check() { # expected method path [json]
 check 201 POST /api/items "{\"name\":\"$NAME\",\"description\":\"smoke\"}"
 ID=$(sed -E 's/.*"id":([0-9]+).*/\1/' /tmp/smoke.out)
 check 200 GET  "/api/items/$ID"
-check 200 GET  "/api/items?status=PENDING"
+check 200 GET  /api/items
 check 409 POST /api/items "{\"name\":\"$NAME\"}"
 check 422 POST /api/items '{"name":""}'
 check 404 GET  /api/items/999999
 check 400 GET  /api/items/abc
-check 200 PATCH "/api/items/$ID/status" '{"status":"IN_REVIEW","reason":"smoke"}'
-check 400 PATCH "/api/items/$ID/status" '{"status":"NOT_A_STATUS"}'
-check 200 PATCH "/api/items/$ID/status" '{"status":"APPROVED"}'
-check 409 PATCH "/api/items/$ID/status" '{"status":"REJECTED"}'
-check 200 GET  "/api/items/$ID/events"
+check 200 PUT  "/api/items/$ID" "{\"name\":\"$NAME-renamed\"}"
+check 400 PUT  "/api/items/$ID" '{not json'
 check 204 DELETE "/api/items/$ID"
 check 404 GET  "/api/items/$ID"
 exit $fail

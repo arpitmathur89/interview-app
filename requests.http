@@ -19,8 +19,8 @@ Content-Type: application/json
 
 {"name": ""}
 
-### List, filtered + paginated
-GET {{base}}/api/items?status=PENDING&page=0&size=20
+### List all
+GET {{base}}/api/items
 
 ### Get one (200) / unknown (404) / bad id (400)
 GET {{base}}/api/items/1
@@ -36,21 +36,6 @@ PUT {{base}}/api/items/1
 Content-Type: application/json
 
 {"name": "demo-renamed", "description": "updated"}
-
-### Valid transition PENDING -> IN_REVIEW (200)
-PATCH {{base}}/api/items/1/status
-Content-Type: application/json
-
-{"status": "IN_REVIEW", "reason": "docs received"}
-
-### IN_REVIEW -> APPROVED (200); then send REJECTED to see 409 (APPROVED is terminal)
-PATCH {{base}}/api/items/1/status
-Content-Type: application/json
-
-{"status": "APPROVED", "reason": "income matched"}
-
-### Status history
-GET {{base}}/api/items/1/events
 
 ### Delete (204)
 DELETE {{base}}/api/items/1

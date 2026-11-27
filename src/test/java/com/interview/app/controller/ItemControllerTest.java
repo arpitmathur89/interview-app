@@ -1,5 +1,6 @@
-package com.interview.app.item;
+package com.interview.app.controller;
 
+import com.interview.app.repository.ItemRepository;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,23 +14,46 @@ import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/** Full request -> controller -> service -> H2 (in-memory) -> response tests. */
+/**
+ * Integration tests for the whole stack: request -> filter -> controller -> service -> repository -> H2 -> response.
+ * Run with {@code make test} or {@code mvn test}.
+ *
+ * <ul>
+ *   <li>{@code @SpringBootTest} starts the real application (all beans) inside the test. The {@code properties}
+ *       override points it at an <b>in-memory</b> H2 database ({@code jdbc:h2:mem:testdb}), so tests never touch your
+ *       dev data in {@code ./data}. {@code DB_CLOSE_DELAY=-1} keeps that database alive until the tests finish.</li>
+ *   <li>{@code @AutoConfigureMockMvc} provides {@link MockMvc}: it sends fake HTTP requests straight into Spring MVC
+ *       without opening a network port, so the tests are fast but still exercise JSON parsing, validation,
+ *       error handling and real SQL.</li>
+ *   <li>{@code @Autowired} asks Spring to inject a bean into a field (fine in tests; app code uses constructors).</li>
+ * </ul>
+ *
+ * <p>Reading a test: {@code mvc.perform(request)} sends a request; each {@code .andExpect(...)} is an assertion.
+ * {@code jsonPath("$.name")} picks a field out of the JSON response ({@code $} is the root, {@code $[0]} the first
+ * array element). If any expectation fails, the test fails and prints the actual response.
+ *
+ * <p>Coverage follows the interview checklist: happy path, invalid input (400/422), unknown id (404),
+ * duplicate or illegal state (409).
+ */
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1")
 @AutoConfigureMockMvc
 class ItemControllerTest {
 
     @Autowired MockMvc mvc;
     @Autowired ItemRepository items;
-    @Autowired ItemEventRepository events;
 
+    /**
+     * Runs before <b>each</b> {@code @Test}: empties the table so every test starts from a clean database and tests
+     * can't affect each other.
+     */
     @BeforeEach
     void clean() {
-        events.deleteAllInBatch();
         items.deleteAllInBatch();
     }
 
     // ---------- happy paths ----------
 
+    /** Create, then read it back by id and in the list; timestamps are set by the server. */
     @Test
     void createThenRetrieve() throws Exception {
         long id = create("first");
@@ -37,7 +61,6 @@ class ItemControllerTest {
         mvc.perform(get("/api/items/{id}", id))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("first"))
-                .andExpect(jsonPath("$.status").value("PENDING"))
                 .andExpect(jsonPath("$.createdAt").exists());
 
         mvc.perform(get("/api/items"))
@@ -45,6 +68,7 @@ class ItemControllerTest {
                 .andExpect(jsonPath("$", hasSize(1)));
     }
 
+    /** PUT changes the item, and a fresh GET proves the change was saved to the DB (not just echoed back). */
     @Test
     void updatePersists() throws Exception {
         long id = create("old");
@@ -55,44 +79,17 @@ class ItemControllerTest {
         mvc.perform(get("/api/items/{id}", id)).andExpect(jsonPath("$.description").value("d"));
     }
 
+    /** DELETE returns 204, and the item is gone afterwards. */
     @Test
-    void validTransitionIsRecordedInHistory() throws Exception {
-        long id = create("t");
-        patchStatus(id, "IN_REVIEW").andExpect(status().isOk()).andExpect(jsonPath("$.status").value("IN_REVIEW"));
-        patchStatus(id, "APPROVED").andExpect(status().isOk());
-
-        mvc.perform(get("/api/items/{id}/events", id))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(2)))
-                .andExpect(jsonPath("$[0].fromStatus").value("PENDING"))
-                .andExpect(jsonPath("$[1].toStatus").value("APPROVED"));
-    }
-
-    @Test
-    void filterByStatusAndPaginate() throws Exception {
-        long a = create("a");
-        create("b");
-        create("c");
-        patchStatus(a, "IN_REVIEW");
-
-        mvc.perform(get("/api/items").param("status", "IN_REVIEW"))
-                .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].name").value("a"));
-        mvc.perform(get("/api/items").param("page", "1").param("size", "2"))
-                .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].name").value("c"));
-    }
-
-    @Test
-    void deleteRemovesItemAndHistory() throws Exception {
+    void deleteRemovesItem() throws Exception {
         long id = create("gone");
-        patchStatus(id, "IN_REVIEW");
         mvc.perform(delete("/api/items/{id}", id)).andExpect(status().isNoContent());
         mvc.perform(get("/api/items/{id}", id)).andExpect(status().isNotFound());
     }
 
     // ---------- bad input ----------
 
+    /** A blank name breaks {@code @NotBlank}: 422 and {@code details.name} explains why. */
     @Test
     void blankNameIsRejectedWithFieldError() throws Exception {
         mvc.perform(post("/api/items").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"\"}"))
@@ -100,25 +97,28 @@ class ItemControllerTest {
                 .andExpect(jsonPath("$.details.name").exists());
     }
 
+    /** Unparseable JSON is 400 (not 500), on both create and update. */
     @Test
-    void malformedJsonAndBadEnumAre400() throws Exception {
+    void malformedJsonIs400() throws Exception {
         mvc.perform(post("/api/items").contentType(MediaType.APPLICATION_JSON).content("{not json"))
                 .andExpect(status().isBadRequest());
         long id = create("x");
-        patchStatus(id, "NOPE").andExpect(status().isBadRequest());
+        mvc.perform(put("/api/items/{id}", id).contentType(MediaType.APPLICATION_JSON).content("{not json"))
+                .andExpect(status().isBadRequest());
     }
 
+    /** Mass-assignment guard: an extra {@code id} key is ignored because the DTO has no such field. */
     @Test
-    void clientCannotSetIdOrStatus() throws Exception {
+    void clientCannotSetId() throws Exception {
         mvc.perform(post("/api/items").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"id\":424242,\"name\":\"sneaky\",\"status\":\"APPROVED\"}"))
+                        .content("{\"id\":424242,\"name\":\"sneaky\"}"))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(not(424242)))
-                .andExpect(jsonPath("$.status").value("PENDING"));
+                .andExpect(jsonPath("$.id").value(not(424242)));
     }
 
     // ---------- invalid identifiers ----------
 
+    /** Every endpoint that takes an id answers 404 with the standard error body when the id doesn't exist. */
     @Test
     void unknownIdIs404Everywhere() throws Exception {
         mvc.perform(get("/api/items/999999")).andExpect(status().isNotFound())
@@ -126,39 +126,33 @@ class ItemControllerTest {
         mvc.perform(put("/api/items/999999").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"n\"}"))
                 .andExpect(status().isNotFound());
         mvc.perform(delete("/api/items/999999")).andExpect(status().isNotFound());
-        mvc.perform(get("/api/items/999999/events")).andExpect(status().isNotFound());
     }
 
+    /** "abc" can't become a Long id: a clean 400, not a 500 crash. */
     @Test
     void nonNumericIdIs400() throws Exception {
         mvc.perform(get("/api/items/abc")).andExpect(status().isBadRequest());
     }
 
-    // ---------- duplicates and state conflicts ----------
+    // ---------- duplicates ----------
 
+    /** The DB unique constraint on name turns a second "dup" into 409, on create and on rename via PUT. */
     @Test
     void duplicateNameIs409() throws Exception {
         create("dup");
         mvc.perform(post("/api/items").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"dup\"}"))
                 .andExpect(status().isConflict());
-    }
-
-    @Test
-    void illegalTransitionIs409() throws Exception {
-        long id = create("t");
-        patchStatus(id, "APPROVED").andExpect(status().isConflict()); // PENDING -> APPROVED not allowed
-    }
-
-    @Test
-    void repeatingSameStatusIsIdempotent() throws Exception {
-        long id = create("t");
-        patchStatus(id, "IN_REVIEW").andExpect(status().isOk());
-        patchStatus(id, "IN_REVIEW").andExpect(status().isOk());
-        mvc.perform(get("/api/items/{id}/events", id)).andExpect(jsonPath("$", hasSize(1)));
+        long other = create("other");
+        mvc.perform(put("/api/items/{id}", other).contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"dup\"}"))
+                .andExpect(status().isConflict());
     }
 
     // ---------- helpers ----------
 
+    /**
+     * Helper: POSTs a new item, checks it returned 201 with a Location header, and returns the generated id
+     * (read from the JSON response with JsonPath) so the test can use it in the next request.
+     */
     private long create(String name) throws Exception {
         String json = mvc.perform(post("/api/items").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"" + name + "\"}"))
@@ -166,10 +160,5 @@ class ItemControllerTest {
                 .andExpect(header().exists("Location"))
                 .andReturn().getResponse().getContentAsString();
         return ((Number) JsonPath.read(json, "$.id")).longValue();
-    }
-
-    private org.springframework.test.web.servlet.ResultActions patchStatus(long id, String status) throws Exception {
-        return mvc.perform(patch("/api/items/{id}/status", id).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"status\":\"" + status + "\",\"reason\":\"test\"}"));
     }
 }
