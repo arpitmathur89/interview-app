@@ -44,7 +44,7 @@ curl -X DELETE localhost:8080/api/items/1
 
 ## Inspect / reset the database
 - Console: http://localhost:8080/h2-console
-  - JDBC URL: `jdbc:h2:file:./data/devdb;AUTO_SERVER=TRUE`, user `sa`, empty password
+  - JDBC URL: `jdbc:h2:file:~/.interview-app/devdb;AUTO_SERVER=TRUE`, user `sa`, empty password
 - Reset: stop the app, then `./reset-db.sh`
 - Useful SQL: `SELECT * FROM ITEMS;`
 - Schema is auto-generated from entities (`ddl-auto=update`).
