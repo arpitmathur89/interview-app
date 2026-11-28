@@ -1,6 +1,5 @@
-package com.interview.app.controller;
+package com.interview.app.item;
 
-import com.interview.app.repository.ItemRepository;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

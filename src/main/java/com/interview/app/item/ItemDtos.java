@@ -1,6 +1,5 @@
-package com.interview.app.dto;
+package com.interview.app.item;
 
-import com.interview.app.model.Item;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 

@@ -1,6 +1,5 @@
-package com.interview.app.repository;
+package com.interview.app.item;
 
-import com.interview.app.model.Item;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**

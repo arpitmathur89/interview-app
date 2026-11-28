@@ -10,12 +10,13 @@ This is a live interview. The candidate drives design; you write focused code th
 - After code changes, run `mvn -q test` and report the result.
 - Never commit unless asked.
 
-## Architecture (MVC, package per layer; copy the Item files as the template)
-- Packages under `com.interview.app`: `model` (entities, status enums), `dto`, `repository`, `service`, `controller`, `exception`, `filter`. A new entity gets one file in each layer folder; no per-feature packages.
-- controller -> service -> repository. Controllers never call repositories.
+## Architecture (one package per feature; follow the `applicant` package as the template)
+- Each feature is one folder under `com.interview.app`: `applicant`, `verification`, `item`. A feature package holds its entity (and status enum), `<Entity>Dtos`, `<Entity>Repository`, `<Entity>Service` and `<Entity>Controller`; its tests live in the same package under `src/test`.
+- Shared packages only: `exception` (error types + `ApiExceptionHandler`) and `filter`. No `model`/`dto`/`repository`/`service`/`controller` layer folders.
+- controller -> service -> repository. Controllers never call repositories. A service may use another feature's repository (e.g. `VerificationService` loads applicants via `ApplicantRepository`).
 - Request/response DTOs are Java records in `<Entity>Dtos.java`. Never bind JPA entities from JSON.
 - Business rules and `@Transactional` boundaries live in the service.
-- Status enums hold their allowed transitions (see `ItemStatus.canTransitionTo`).
+- Status enums hold their allowed transitions (see `VerificationStatus.canTransitionTo`).
 - Enforce business uniqueness with DB unique constraints, not check-then-insert; use `saveAndFlush`.
 - Foreign keys: `@ManyToOne(fetch = LAZY, optional = false)`; choose `@OnDelete` deliberately.
 - Money: `long` cents or `BigDecimal`, never `double`.
@@ -26,7 +27,7 @@ This is a live interview. The candidate drives design; you write focused code th
 - Error body: `{"error", "message", "details"?}`.
 
 ## Tests
-- MockMvc integration tests in `src/test`, one test class per controller, following `ItemControllerTest`.
+- MockMvc integration tests in `src/test`, one test class per controller in the feature's package, following `ApplicantControllerTest`.
 - For every endpoint cover: happy path, field validation (422), malformed input (400), unknown id (404), duplicate or illegal state (409).
 
 ## Security

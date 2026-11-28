@@ -53,34 +53,42 @@ curl -X DELETE localhost:8080/api/items/1
 - Console output of `mvn spring-boot:run` (SQL is logged via `show-sql`)
 - Test reports: `target/surefire-reports/`
 
-## Layout (MVC, one folder per layer)
-A request flows: View (browser) -> controller -> service -> repository -> model (DB) and back as JSON.
+## Layout (one folder per feature; `applicant` is the template)
+A request flows: browser -> controller -> service -> repository -> entity (DB) and back as JSON.
+Each feature package holds its entity (+ status enum), DTO records, repository, service and controller.
 ```
 src/main/java/com/interview/app/
   InterviewApplication.java          entry point
-  model/        M: what is stored (JPA entities = DB tables)
-    Item.java                        placeholder entity, unique name, timestamps
-  dto/          API contract: request/response records (no mass assignment)
-    ItemDtos.java
-  controller/   C: HTTP in/out only, thin
-    ItemController.java
-  service/      business rules + @Transactional boundaries
-    ItemService.java
-  repository/   DB access (Spring Data writes the SQL)
-    ItemRepository.java
-  exception/    errors -> one JSON shape: 400 / 404 / 409 / 422 / 500
+  applicant/    template feature: CRUD at /api/applicants (GET by id includes verifications)
+    Applicant.java                   entity: name, email, employer, annualIncome (NUMERIC 19,2), currency=USD
+    ApplicantDtos.java               request/response records (no mass assignment)
+    ApplicantRepository.java         DB access (Spring Data writes the SQL)
+    ApplicantService.java            business rules + @Transactional boundaries
+    ApplicantController.java         HTTP in/out only, thin
+  verification/ POST /api/applicants/{applicantId}/verifications
+    Verification.java                FK to applicants (ON DELETE CASCADE), unique nullable pendingApplicantId
+    VerificationStatus.java          PENDING | VERIFIED | NEEDS_REVIEW | FAILED + allowed transitions
+    VerificationDtos.java, VerificationRepository.java, VerificationService.java, VerificationController.java
+  item/         original placeholder feature: CRUD at /api/items
+    Item.java, ItemDtos.java, ItemRepository.java, ItemService.java, ItemController.java
+  exception/    shared: errors -> one JSON shape: 400 / 404 / 409 / 422 / 500
     ApiExceptionHandler.java, NotFoundException.java (404), ConflictException.java (409)
-  filter/       cross-cutting: one log line per request
+  filter/       shared: one log line per request
     RequestLoggingFilter.java
 src/main/resources/
   application.properties
-  static/index.html                  V: the page; calls the JSON API with fetch()
-src/test/java/com/interview/app/controller/ItemControllerTest.java
+  static/index.html                  the page; calls the JSON API with fetch()
+src/test/java/com/interview/app/     tests mirror the feature packages
+  applicant/ApplicantControllerTest.java
+  verification/VerificationControllerTest.java
+  item/ItemControllerTest.java
 ```
 
 ## Interview day workflow
 1. Read the full prompt, confirm P0/P1, and ask about backend-only scope.
-2. For each real entity (Item -> Applicant, etc.), copy the Item file in each layer
-   folder: model, dto, repository, service, controller, plus its test.
+2. For each new entity, create a feature package by copying the `applicant` package (entity, DTOs,
+   repository, service, controller) plus its test package.
 3. Build one vertical slice (endpoint -> DB -> response), test it, then repeat.
 4. Test happy path + missing input, bad IDs, duplicates, updates.
+
+

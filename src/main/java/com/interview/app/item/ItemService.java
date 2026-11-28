@@ -1,9 +1,7 @@
-package com.interview.app.service;
+package com.interview.app.item;
 
-import com.interview.app.model.Item;
-import com.interview.app.repository.ItemRepository;
 import com.interview.app.exception.NotFoundException;
-import com.interview.app.dto.ItemDtos.*;
+import com.interview.app.item.ItemDtos.*;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

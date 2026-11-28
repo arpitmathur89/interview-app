@@ -1,4 +1,4 @@
-package com.interview.app.model;
+package com.interview.app.item;
 
 import jakarta.persistence.*;
 
@@ -28,7 +28,7 @@ import java.time.Instant;
  * "if exists then reject" check in Java could let both through; the database cannot be raced.
  *
  * <p>Entities are never sent to or read from clients directly; the API uses the records in
- * {@code dto/ItemDtos} instead. Placeholder: rename or copy it for the interview's real entity.
+ * {@code ItemDtos} instead. Placeholder: rename or copy it for the interview's real entity.
  */
 @Entity
 @Table(name = "items",

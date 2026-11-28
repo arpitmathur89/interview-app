@@ -1,7 +1,6 @@
-package com.interview.app.controller;
+package com.interview.app.item;
 
-import com.interview.app.service.ItemService;
-import com.interview.app.dto.ItemDtos.*;
+import com.interview.app.item.ItemDtos.*;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
